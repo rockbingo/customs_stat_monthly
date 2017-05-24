@@ -27,7 +27,7 @@ from customs_stat_monthly.items import (
 )
 
 setlocale(LC_NUMERIC, 'English_US')
-LOGGER = logging.getLogger('')
+# LOGGER = logging.getLogger(__name__)
 
 
 class CsmSpider(scrapy.Spider):
@@ -56,8 +56,7 @@ class CsmSpider(scrapy.Spider):
         '(16)自部分国家(地区)出口商品类章金额表'
     ]
 
-    def __init__(self, oracle_connstr):
-        self.oracle_connstr = oracle_connstr
+    def __init__(self):
         self.func_map = self.map_parse_function()
         self.item_map = self.map_item_initializer()
         self.fields_map = self.map_table_fields()
@@ -66,9 +65,7 @@ class CsmSpider(scrapy.Spider):
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(
-            oracle_connstr=crawler.settings.get('ORACLE_CONNSTR'),
-        )
+        return cls()
 
     def map_parse_function(self):
         func_map = {}
@@ -187,9 +184,6 @@ class CsmSpider(scrapy.Spider):
         return fields_map
 
     def parse(self, response):
-        self.conn = cx_Oracle.connect(self.oracle_connstr)
-        self.cursor = self.conn.cursor()
-
         yrs = response.xpath(
             '//*[@id="ess_ctr187729_HtmlModule_lblContent"]'
             '/div/div[2]/span/text()').extract()
@@ -230,11 +224,11 @@ class CsmSpider(scrapy.Spider):
                         url = response.urljoin(urls[0])
 
                         # 查重，排除已采集的网址
-                        if self.duplicate_url(url):
-                            continue
+                        # if self.duplicate_url(url):
+                        #     continue
 
-                        if self.invalid_url(url):
-                            continue
+                        # if self.invalid_url(url):
+                        #     continue
 
                         meta = {}
                         meta['YEAR'] = year
@@ -247,9 +241,7 @@ class CsmSpider(scrapy.Spider):
                         func = self.func_map[tab_name]
                         yield scrapy.Request(url, func, meta=meta)
 
-        self.cursor.close()
-        self.conn.close()
-
+    '''
     def duplicate_url(self, url):
         if self.requested_url is None:
             self.requested_url = set()
@@ -274,6 +266,7 @@ class CsmSpider(scrapy.Spider):
         if url.endswith('.xls'):
             LOGGER.warning("Xls content isn't supported <GET %s>", url)
             return True
+    '''
 
     def parse_table_normal(self, response):
         # 1a, 1b, 2, 3, 4, 8, 9, 10, 11

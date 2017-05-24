@@ -5,7 +5,72 @@
 # See documentation in:
 # http://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
+import os
+import hashlib
+import cx_Oracle
 from scrapy import signals
+from scrapy.exceptions import IgnoreRequest
+
+
+class DuplicateRequestMiddleware(object):
+    TB_NAME = 'DET_CSM_LOG'
+    DUP_CMD = 'SELECT count(*) FROM {} WHERE hid=:1'.format(TB_NAME)
+
+    def __init__(self, connstr):
+        self.connstr = connstr
+        self.requested_url = None
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        # This method is used by Scrapy to create your spiders.
+        connstr = crawler.settings.get('ORACLE_CONNSTR')
+        s = cls(connstr)
+        crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
+        crawler.signals.connect(s.spider_closed, signal=signals.spider_closed)
+        return s
+    
+    def spider_opened(self, spider):
+        os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.AL32UTF8'
+        self.conn = cx_Oracle.connect(self.connstr)
+        self.cursor = self.conn.cursor()
+
+    def spider_closed(self, spider):
+        self.cursor.close()
+        self.conn.close()
+    
+    def process_request(self, request, spider):
+        if request.meta is None:
+            return None
+        if self.requested_url is None:
+            self.requested_url = set()
+        url = request.url
+        if url in self.requested_url:
+            spider.logger.warning('Found duplicated url <GET %s>', url)
+            self.requested_url.add(url)
+            raise IgnoreRequest()
+        else:
+            self.requested_url.add(url)
+
+        m = hashlib.md5()
+        m.update(url.encode())
+        hid = m.hexdigest()
+        self.cursor.execute(self.DUP_CMD, (hid,))
+        count = self.cursor.fetchone()[0]
+        if count > 0:
+            spider.logger.info('Url has already been acquired <GET %s>', url)
+            raise IgnoreRequest()
+        return None
+
+
+class ExcelRequestMiddleware(object):
+    def process_request(self, request, spider):
+        if request.meta is None:
+            return None
+        url = request.url
+        if url.endswith('.xls'):
+            spider.logger.warning("The .xls content isn't supported <GET %s>", url)
+            raise IgnoreRequest()
+        return None
 
 
 class CustomsStatMonthlySpiderMiddleware(object):

@@ -54,18 +54,18 @@ TABLE_MAP = {
 
 class OracleCsmPipeline(object):
 
-    def __init__(self, oracle_connstr):
-        self.oracle_connstr = oracle_connstr
+    def __init__(self, connstr):
+        self.connstr = connstr
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
-            oracle_connstr=crawler.settings.get('ORACLE_CONNSTR'),
+            connstr=crawler.settings.get('ORACLE_CONNSTR'),
         )
 
     def open_spider(self, spider):
         os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.AL32UTF8'
-        self.conn = cx_Oracle.connect(self.oracle_connstr)
+        self.conn = cx_Oracle.connect(self.connstr)
         self.cursor = self.conn.cursor()
         self.check_tables()
 
@@ -101,6 +101,7 @@ class OracleCsmPipeline(object):
 
     def process_item(self, item, spider):
         self.insert_item(item)
+        spider.logger.info('Item saved to database')
         return item
 
     def insert_item(self, item):
