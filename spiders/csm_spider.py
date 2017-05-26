@@ -239,7 +239,7 @@ class CsmSpider(scrapy.Spider):
                         meta['HEADER_HEIGHT'] = (
                             self.header_height_map[tab_name])
                         func = self.func_map[tab_name]
-                        yield scrapy.Request(url, func, meta=meta)
+                        yield scrapy.Request(url, func, dont_filter=True, meta=meta)
 
     '''
     def duplicate_url(self, url):
